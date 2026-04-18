@@ -32,6 +32,9 @@ class ParseError(Exception):
 
 
 def p_term(inp: str) -> Term:
+    if not inp or not inp.strip():
+        raise ParseError("UnexpectedEOF")
+
     tokens = inp.split()
 
     def base94_to_int(s: str) -> int:
@@ -46,6 +49,8 @@ def p_term(inp: str) -> Term:
         return "".join(CHARS_DECODED[ord(c) - 33] for c in body)
 
     def parse_next() -> Term:
+        if not tokens:
+            raise ParseError("UnexpectedEOF")
         token = tokens.pop(0)
         indicator = token[0]
         body = token[1:]

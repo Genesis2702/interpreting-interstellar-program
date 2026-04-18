@@ -129,7 +129,7 @@ def interpret(check_max: bool, term: Term) -> tuple[Term, int]:
             return VString(t.value)
         elif isinstance(t, TVar):
             if t.value not in env:
-                raise ScopeError(t.value)
+                raise ScopeError(f"Undefined variable {t.value}")
             thunk = env[t.value]
             return force_evaluation(thunk)
         elif isinstance(t, TLam):
@@ -161,13 +161,12 @@ def interpret(check_max: bool, term: Term) -> tuple[Term, int]:
             if op == "$":
                 if not isinstance(left, VClosure):
                     raise TypeError_()
-                nonlocal steps
                 steps += 1
                 if steps > MAX_STEPS:
                     raise BetaReductionLimit()
-                new_env = env.copy()
+                new_env = left.env.copy()
                 new_env[left.var] = Thunk(kind="thunk", term=t.right, env=env.copy())
-                eval_term(left.body, new_env)
+                return eval_term(left.body, new_env)
             right = eval_term(t.right, env)
             if op in ("+", "-", "*", "/", "%"):
                 if not isinstance(left, VInt) or not isinstance(right, VInt):
@@ -182,12 +181,12 @@ def interpret(check_max: bool, term: Term) -> tuple[Term, int]:
                     return VInt(a * b)
                 if op == "/":
                     if b == 0:
-                        raise ZeroDivisionError()
+                        raise ArithmeticError_("Division by zero")
                     q = a // b if (a >= 0) == (b >= 0) else -((-a) // b)
                     return VInt(q)
                 if op == "%":
                     if b == 0:
-                        raise ZeroDivisionError()
+                        raise ArithmeticError_("Division by zero")
                     q = a // b if (a >= 0) == (b >= 0) else -((-a) // b)
                     return VInt(a - q * b)
             elif op in ("<", ">", "="):
@@ -227,11 +226,11 @@ def interpret(check_max: bool, term: Term) -> tuple[Term, int]:
             else:
                 raise UnknownBinOp(op)
         elif isinstance(t, TIf):
-            cond = t.cond
+            cond = eval_term(t.cond, env)
             if not isinstance(cond, VBool):
                 raise TypeError_()
-            branch = t.true_branch if cond else t.false_branch
-            eval_term(branch, env)
+            branch = t.true_branch if cond.value else t.false_branch
+            return eval_term(branch, env)
 
         raise TypeError(f"Unknown term type: {type(t).__name__}")
 
