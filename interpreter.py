@@ -103,7 +103,7 @@ def interpret(check_max: bool, term: Term) -> tuple[Term, int]:
 
     def int_to_string(num: int) -> str:
         if num < 0:
-            raise TypeError_()
+            raise ArithmeticError_()
         elif num == 0:
             return CHARS_DECODED[0]
         out: list[str] = []
@@ -129,7 +129,7 @@ def interpret(check_max: bool, term: Term) -> tuple[Term, int]:
             return VString(t.value)
         elif isinstance(t, TVar):
             if t.value not in env:
-                raise ScopeError(f"Undefined variable {t.value}")
+                raise ScopeError()
             thunk = env[t.value]
             return force_evaluation(thunk)
         elif isinstance(t, TLam):
@@ -162,7 +162,7 @@ def interpret(check_max: bool, term: Term) -> tuple[Term, int]:
                 if not isinstance(left, VClosure):
                     raise TypeError_()
                 steps += 1
-                if steps > MAX_STEPS:
+                if check_max and steps > MAX_STEPS:
                     raise BetaReductionLimit()
                 new_env = left.env.copy()
                 new_env[left.var] = Thunk(kind="thunk", term=t.right, env=env.copy())
@@ -181,25 +181,30 @@ def interpret(check_max: bool, term: Term) -> tuple[Term, int]:
                     return VInt(a * b)
                 if op == "/":
                     if b == 0:
-                        raise ArithmeticError_("Division by zero")
+                        raise ArithmeticError_()
                     q = a // b if (a >= 0) == (b >= 0) else -((-a) // b)
                     return VInt(q)
                 if op == "%":
                     if b == 0:
-                        raise ArithmeticError_("Division by zero")
+                        raise ArithmeticError_()
                     q = a // b if (a >= 0) == (b >= 0) else -((-a) // b)
                     return VInt(a - q * b)
             elif op in ("<", ">", "="):
-                if not isinstance(left, VInt) or not isinstance(right, VInt):
-                    raise TypeError_()
-                a = left.value
-                b = right.value
-                if op == "<":
-                    return VBool(a < b)
-                if op == ">":
-                    return VBool(a > b)
                 if op == "=":
-                    return VBool(a == b)
+                    if type(left) != type(right):
+                        raise TypeError_()
+                    if isinstance(left, (VInt, VBool, VString)):
+                        return VBool(left.value == right.value)
+                    raise TypeError_()
+                elif op in ("<", ">"):
+                    if not isinstance(left, VInt) or not isinstance(right, VInt):
+                        raise TypeError_()
+                    a = left.value
+                    b = right.value
+                    if op == "<":
+                        return VBool(a < b)
+                    if op == ">":
+                        return VBool(a > b)
             elif op in ("|", "&"):
                 if not isinstance(left, VBool) or not isinstance(right, VBool):
                     raise TypeError_()
